@@ -1,0 +1,19 @@
+{
+    "vlo-beta": {
+        "image": "docker.clarin.eu/vlo-beta:1.0.4",
+        "restart": "always",
+        "remove": false,
+        "port_mappings": [
+            "172.17.0.1:8080:8080"
+        ],
+        "volume_mappings" : [
+            "/var/log/docker/vlo-beta:/var/log/tomcat",
+            "/srv/vlo-data:/srv/vlo-data",
+            "/srv/vlo-sitemap:/opt/sitemap",
+            "/srv/vlo-statsd:/opt/statsd"
+        ],
+        "environment_variables": [
+            "SOLR_DATA=/opt/solr-data"
+        ]
+    }
+}
