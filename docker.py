@@ -197,11 +197,13 @@ class App(cli.Application):
             self.config = json.load(json_data_file)
 
     def main(self):
+        print "Unused"
 
 
-
-@App.subcommand("deploy", help="docker deploy utilities")
+@App.subcommand("deploy")
 class Deploy(cli.Application):
+    """Docker deploy utilities"""
+
     container = None
 
     @cli.switch(["-c", "--container"], str, help="Specify which container to deploy, defaults to ALL")
@@ -217,11 +219,15 @@ class Deploy(cli.Application):
             for key in self.parent.config:
                 docker.deploy(key)
 
-@App.subcommand("clean", help="docker cleanup utilities")
+
+@App.subcommand("clean")
 class Clean(cli.Application):
+    """Docker cleanup utilities"""
+
     def main(self):
         docker = Docker(verbose=self.parent.verbose)
         docker.remove_untagged()
+
 
 if __name__ == "__main__":
     App.run()
