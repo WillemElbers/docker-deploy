@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from plumbum import local, cli
 from plumbum import commands
 from sys import stdout
