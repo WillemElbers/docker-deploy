@@ -19,16 +19,18 @@ class Docker:
     def version(self):
         return self.docker("version")
 
-    def deploy(self, name):
+    def deploy(self, name, shared_vars=[]):
         if self.config is None:
             raise StandardError("Configuration not initialized")
 
         if name in self.config:
-            self.container.deploy(name, self.config[name])
+            self.container.deploy(name, self.config[name], shared_vars)
         else:
             raise StandardError("%s not found in configuration" % name)
 
     def remove_untagged(self):
+        untagged = 0
+        removed = 0
         for line in self.docker("images").splitlines():
             repository = line[0:44].strip()
             tag = line[44:64].strip()
@@ -36,9 +38,25 @@ class Docker:
             created = line[84:104].strip()
             virtual_size = line[104:].strip()
 
+            untagged += 1
             if repository == "<none>" and tag == "<none>":
                 self.print_to_stdout("Removing %s: " % image_id)
-                self.execute_docker_command("rm", image_id)
+                if self.execute_docker_command("rm", image_id):
+                    removed += 1
+
+        print "Processed: %d, removed: %d, failed: %d" % (untagged, removed, untagged-removed)
+
+    def remove_dangling(self):
+        dangling = 0
+        removed = 0
+        for line in self.docker("images", "-q", "-f", "dangling=true").splitlines():
+            dangling += 1
+            image_id = line.strip()
+            self.print_to_stdout("Removing %s: " % image_id)
+            if self.execute_docker_command("rm", image_id):
+                removed += 1
+
+        print "Processed: %d, removed: %d, failed: %d" % (dangling, removed, dangling-removed)
 
     def execute_docker_command(self, *args):
         try:
@@ -76,20 +94,32 @@ class Container:
         self.verbose = verbose
         self.docker = local["docker"]
 
-    def deploy(self, name, config):
+    def deploy(self, name, config, shared_vars=[]):
         if not self.stop(name):
             return
         if not self.remove(name):
             return
-        self.run(name, config)
+        self.run(name, config, shared_vars)
 
-    def run(self, name, config):
-        args = ["run", "-d", "--name", name]
+    def run(self, name, config, shared_vars=[]):
+        args = ["run", "--name", name]
+
+        if "daemon" in config and config["daemon"]:
+            args.append("-d")
+        if "interactive" in config and config["interactive"]:
+            args.append("-i")
+
         if "remove" in config and config["remove"]:
             args.append("--rm")
+        if "memory" in config:
+            args.append("-m")
+            args.append(config["memory"])
         if "restart" in config:
             args.append("--restart")
             args.append(config["restart"])
+        for var in shared_vars:
+            args.append("-e")
+            args.append(var)
         for var in config["environment_variables"]:
             args.append("-e")
             args.append(var)
@@ -102,18 +132,14 @@ class Container:
             if volume.startswith("/"):
                 host_path = volume.split(":")[0]
                 if not os.path.isdir(host_path):
-                    self.print_to_stdout("Creating host directory [%s]: " % host_path)
+                    self.print_to_stdout("Creating host directory [%s]\n" % host_path)
                     os.makedirs(host_path)
         args.append(config["image"])
 
         #self.print_to_stdout("Args: %s.\n" % args)
         self.print_to_stdout("Running container [%s]: " % name)
 
-        try:
-            self.docker.run(args)
-            self.print_to_stdout("Success.\n")
-        except:
-            self.print_to_stdout("Failed.\n")
+        return self.execute_docker_command(args)
 
     def stop(self, name):
         self.print_to_stdout("Stopping [%s]: " % name)
@@ -122,7 +148,7 @@ class Container:
             self.print_to_stdout("Not running.\n")
             return True
         else:
-            return self.execute_docker_command("stop", name)
+            return self.execute_docker_command(["stop", name])
 
     def remove(self, name):
         self.print_to_stdout("Removing [%s]: " % name)
@@ -131,11 +157,11 @@ class Container:
             self.print_to_stdout("Doesn't exist.\n")
             return True
 
-        return self.execute_docker_command("rm", name)
+        return self.execute_docker_command(["rm", name])
 
-    def execute_docker_command(self, *args):
+    def execute_docker_command(self, args):
         try:
-            self.docker(args)
+            self.docker.run(args)
             self.print_to_stdout("Success.\n")
             return True
         except commands.processes.ProcessExecutionError, e:
@@ -156,7 +182,7 @@ class Container:
         else:
             if "State" in json[0] and "Status" in json[0]["State"]:
                 status = json[0]["State"]["Status"]
-                return status == "running"
+                return status == "running" or status == "restarting"
             else:
                 return False
 
@@ -196,8 +222,8 @@ class App(cli.Application):
         with open(self.deployment_file) as json_data_file:
             self.config = json.load(json_data_file)
 
-    def main(self):
-        print "Unused"
+    #def main(self):
+    #    print "Unused"
 
 
 @App.subcommand("deploy")
@@ -213,20 +239,42 @@ class Deploy(cli.Application):
     def main(self):
         self.parent.load_deployment_file()
         docker = Docker(config=self.parent.config, verbose=self.parent.verbose)
+
+        shared_vars = []
+        if "shared_environment_variables" in self.parent.config:
+            shared_vars = self.parent.config["shared_environment_variables"]
+
         if self.container is not None:
-            docker.deploy(self.container)
+            docker.deploy(self.container, shared_vars)
         else:
             for key in self.parent.config:
-                docker.deploy(key)
+                if not key == "shared_environment_variables":
+                    docker.deploy(key, shared_vars)
 
 
 @App.subcommand("clean")
 class Clean(cli.Application):
     """Docker cleanup utilities"""
 
+    untagged = False
+    dangling = False
+
+    @cli.switch(["-u", "--untagged"], help="Remove untagged containers, defaults to false")
+    def set_untagged(self):
+        self.untagged = True
+
+    @cli.switch(["-d", "--dangling"], help="Remove dangling containers, defaults to false")
+    def set_dangling(self):
+        self.dangling = True
+
     def main(self):
         docker = Docker(verbose=self.parent.verbose)
-        docker.remove_untagged()
+        if self.untagged:
+            print "Cleaning untagged images"
+            docker.remove_untagged()
+        if self.dangling:
+            print "Cleaning dangling images"
+            docker.remove_dangling()
 
 
 if __name__ == "__main__":
