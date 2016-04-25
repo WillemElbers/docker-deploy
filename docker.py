@@ -226,6 +226,17 @@ class App(cli.Application):
     #    print "Unused"
 
 
+@App.subcommand("list")
+class List(cli.Application):
+    """List configured containers"""
+
+    def main(self):
+        self.parent.load_deployment_file()
+        for key in self.parent.config:
+            if not key == "shared_environment_variables":
+                print key
+
+
 @App.subcommand("deploy")
 class Deploy(cli.Application):
     """Docker deploy utilities"""
