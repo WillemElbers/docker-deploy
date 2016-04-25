@@ -215,7 +215,8 @@ class App(cli.Application):
 
     def load_deployment_file(self):
         if self.deployment_file is None:
-            raise StandardError("Deployment file is required")
+            self.deployment_file = os.path.join(os.getcwd(), "deploy.json")
+
         if not os.path.exists(self.deployment_file):
             raise StandardError("Deployment file [%s] not found" % self.deployment_file)
 
