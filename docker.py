@@ -120,12 +120,14 @@ class Container:
         for var in shared_vars:
             args.append("-e")
             args.append(var)
-        for var in config["environment_variables"]:
-            args.append("-e")
-            args.append(var)
-        for port in config["port_mappings"]:
-            args.append("-p")
-            args.append(port)
+        if "environment_variables" in config:
+            for var in config["environment_variables"]:
+                args.append("-e")
+                args.append(var)
+        if "port_mappings" in config:
+            for port in config["port_mappings"]:
+                args.append("-p")
+                args.append(port)
         #Host volume mappings
         if "volume" in config:
             for volume in config["volume_mappings"]:
