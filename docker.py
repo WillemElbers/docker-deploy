@@ -126,6 +126,7 @@ class Container:
         for port in config["port_mappings"]:
             args.append("-p")
             args.append(port)
+        #Host volume mappings
         for volume in config["volume_mappings"]:
             args.append("-v")
             args.append(volume)
@@ -134,6 +135,17 @@ class Container:
                 if not os.path.isdir(host_path):
                     self.print_to_stdout("Creating host directory [%s]\n" % host_path)
                     os.makedirs(host_path)
+        #Volume container mappings
+        if "volumes_from" in config:
+            for volume in config["volumes_from"]:
+                volume_name = volume["name"]
+                volume_image = volume["image"]
+                if not self.does_exist(volume_name):
+                    self.print_to_stdout("Creating volume container [%s] from image [%s]." % (volume_name, volume_image))
+                    self.execute_docker_command(["create", "--name", volume_name, volume_image])
+                args.append("--volumes-from")
+                args.append(volume_name)
+
         args.append(config["image"])
 
         #self.print_to_stdout("Args: %s.\n" % args)
@@ -222,9 +234,6 @@ class App(cli.Application):
 
         with open(self.deployment_file) as json_data_file:
             self.config = json.load(json_data_file)
-
-    #def main(self):
-    #    print "Unused"
 
 
 @App.subcommand("list")
