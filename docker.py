@@ -127,14 +127,15 @@ class Container:
             args.append("-p")
             args.append(port)
         #Host volume mappings
-        for volume in config["volume_mappings"]:
-            args.append("-v")
-            args.append(volume)
-            if volume.startswith("/"):
-                host_path = volume.split(":")[0]
-                if not os.path.isdir(host_path):
-                    self.print_to_stdout("Creating host directory [%s]\n" % host_path)
-                    os.makedirs(host_path)
+        if "volume" in config:
+            for volume in config["volume_mappings"]:
+                args.append("-v")
+                args.append(volume)
+                if volume.startswith("/"):
+                    host_path = volume.split(":")[0]
+                    if not os.path.isdir(host_path):
+                        self.print_to_stdout("Creating host directory [%s]\n" % host_path)
+                        os.makedirs(host_path)
         #Volume container mappings
         if "volumes_from" in config:
             for volume in config["volumes_from"]:
