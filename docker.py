@@ -139,7 +139,7 @@ class Container:
                 args.append("-p")
                 args.append(port)
         #Host volume mappings
-        if "volume" in config:
+        if "volume_mappings" in config:
             for volume in config["volume_mappings"]:
                 args.append("-v")
                 args.append(volume)
@@ -184,7 +184,7 @@ class Container:
                 args.append("-p")
                 args.append(port)
         #Host volume mappings
-        if "volume" in config:
+        if "volume_mappings" in config:
             for volume in config["volume_mappings"]:
                 args.append("-v")
                 args.append(volume)
@@ -237,7 +237,7 @@ class Container:
     def execute_docker_command(self, args, foreground=False):
         try:
             if foreground:
-                self.docker.run[args] & FG
+                self.docker[args] & FG
             else:
                 self.docker.run(args)
             self.print_to_stdout("Success.\n")
