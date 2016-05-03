@@ -28,6 +28,16 @@ class Docker:
         else:
             raise StandardError("%s not found in configuration" % name)
 
+    def run(self, name, shared_vars=[]):
+        if self.config is None:
+            raise StandardError("Configuration not initialized")
+
+        if name in self.config["run"]:
+            self.container.run(name, self.config["run"][name], shared_vars)
+        else:
+            raise StandardError("%s not found in configuration" % name)
+
+
     def remove_untagged(self):
         untagged = 0
         removed = 0
@@ -99,9 +109,9 @@ class Container:
             return
         if not self.remove(name):
             return
-        self.run(name, config, shared_vars)
+        self.deploy_run(name, config, shared_vars)
 
-    def run(self, name, config, shared_vars=[]):
+    def deploy_run(self, name, config, shared_vars=[]):
         args = ["run", "--name", name]
 
         if "daemon" in config and config["daemon"]:
@@ -152,9 +162,54 @@ class Container:
         args.append(config["image"])
 
         #self.print_to_stdout("Args: %s.\n" % args)
+        self.print_to_stdout("Deploying container [%s]: " % name)
+
+        return self.execute_docker_command(args)
+
+    def run(self, name, config, shared_vars=[]):
+        args = ["run", "--name", name, "-ti", "--rm"]
+
+        if "memory" in config:
+            args.append("-m")
+            args.append(config["memory"])
+        for var in shared_vars:
+            args.append("-e")
+            args.append(var)
+        if "environment_variables" in config:
+            for var in config["environment_variables"]:
+                args.append("-e")
+                args.append(var)
+        if "port_mappings" in config:
+            for port in config["port_mappings"]:
+                args.append("-p")
+                args.append(port)
+        #Host volume mappings
+        if "volume" in config:
+            for volume in config["volume_mappings"]:
+                args.append("-v")
+                args.append(volume)
+                if volume.startswith("/"):
+                    host_path = volume.split(":")[0]
+                    if not os.path.isdir(host_path):
+                        self.print_to_stdout("Creating host directory [%s]\n" % host_path)
+                        os.makedirs(host_path)
+        #Volume container mappings
+        if "volumes_from" in config:
+            for volume in config["volumes_from"]:
+                volume_name = volume["name"]
+                volume_image = volume["image"]
+                if not self.does_exist(volume_name):
+                    self.print_to_stdout("Creating volume container [%s] from image [%s]." % (volume_name, volume_image))
+                    self.execute_docker_command(["create", "--name", volume_name, volume_image])
+                args.append("--volumes-from")
+                args.append(volume_name)
+
+        args.append(config["image"])
+
         self.print_to_stdout("Running container [%s]: " % name)
 
         return self.execute_docker_command(args)
+
 
     def stop(self, name):
         self.print_to_stdout("Stopping [%s]: " % name)
@@ -254,11 +309,7 @@ class List(cli.Application):
 class Deploy(cli.Application):
     """Docker deploy utilities"""
 
-    container = None
-
-    @cli.switch(["-c", "--container"], str, help="Specify which container to deploy, defaults to ALL")
-    def set_container(self, container):
-        self.container = container
+    container = cli.SwitchAttr(["-c", "--container"], str, mandatory=False, help="Specify which container to deploy, defaults to ALL")
 
     def main(self):
         self.parent.load_deployment_file()
@@ -276,20 +327,29 @@ class Deploy(cli.Application):
                     docker.deploy(key, shared_vars)
 
 
+@App.subcommand("run")
+class Run(cli.Application):
+    """Docker run utilities"""
+
+    container = cli.SwitchAttr(["-c", "--container"], str, mandatory=False, help="Specify which container to deploy, defaults to ALL")
+
+    def main(self):
+        self.parent.load_deployment_file()
+        docker = Docker(config=self.parent.config, verbose=self.parent.verbose)
+
+        shared_vars = []
+        if "shared_environment_variables" in self.parent.config:
+            shared_vars = self.parent.config["shared_environment_variables"]
+
+        print "Running: %s" % (self.container)
+        docker.run(self.container, shared_vars)
+
 @App.subcommand("clean")
 class Clean(cli.Application):
     """Docker cleanup utilities"""
 
-    untagged = False
-    dangling = False
-
-    @cli.switch(["-u", "--untagged"], help="Remove untagged containers, defaults to false")
-    def set_untagged(self):
-        self.untagged = True
-
-    @cli.switch(["-d", "--dangling"], help="Remove dangling containers, defaults to false")
-    def set_dangling(self):
-        self.dangling = True
+    untagged = cli.SwitchAttr(["-u", "--untagged"], bool, default=False, help="Remove untagged containers, defaults to false")
+    dangling = cli.SwitchAttr(["-d", "--dangling"], bool, default=False, help="Remove dangling containers, defaults to false")
 
     def main(self):
         docker = Docker(verbose=self.parent.verbose)
