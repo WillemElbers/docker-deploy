@@ -206,6 +206,11 @@ class Container:
 
         args.append(config["image"])
 
+        #Add any additional params
+        if "params" in config:
+            for param in config["params"]:
+                args.append(param)
+
         self.print_to_stdout("Running container [%s]: " % name)
 
         return self.execute_docker_command(args)
@@ -331,7 +336,7 @@ class Deploy(cli.Application):
 class Run(cli.Application):
     """Run and remove a (disposable) container"""
 
-    container = cli.SwitchAttr(["-c", "--container"], str, mandatory=False, help="Specify which container to deploy, defaults to ALL")
+    container = cli.SwitchAttr(["-c", "--container"], str, mandatory=True, help="Specify which container to deploy, defaults to ALL")
 
     def main(self):
         self.parent.load_deployment_file()
