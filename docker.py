@@ -307,7 +307,7 @@ class List(cli.Application):
 
 @App.subcommand("deploy")
 class Deploy(cli.Application):
-    """Docker deploy utilities"""
+    """Deploy a persistent docker container"""
 
     container = cli.SwitchAttr(["-c", "--container"], str, mandatory=False, help="Specify which container to deploy, defaults to ALL")
 
@@ -329,7 +329,7 @@ class Deploy(cli.Application):
 
 @App.subcommand("run")
 class Run(cli.Application):
-    """Docker run utilities"""
+    """Run and remove a (disposable) container"""
 
     container = cli.SwitchAttr(["-c", "--container"], str, mandatory=False, help="Specify which container to deploy, defaults to ALL")
 
