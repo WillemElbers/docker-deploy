@@ -23,10 +23,10 @@ class Docker:
         if self.config is None:
             raise StandardError("Configuration not initialized")
 
-        if name in self.config:
-            self.container.deploy(name, self.config[name], shared_vars)
+        if name in self.config["deploy"]:
+            self.container.deploy(name, self.config["deploy"][name], shared_vars)
         else:
-            raise StandardError("%s not found in configuration" % name)
+            raise StandardError("%s not found in deploy section of configuration" % name)
 
     def run(self, name, shared_vars=[]):
         if self.config is None:
@@ -35,7 +35,7 @@ class Docker:
         if name in self.config["run"]:
             self.container.run(name, self.config["run"][name], shared_vars)
         else:
-            raise StandardError("%s not found in configuration" % name)
+            raise StandardError("%s not found in run section configuration" % name)
 
 
     def remove_untagged(self):
