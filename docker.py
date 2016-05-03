@@ -213,7 +213,7 @@ class Container:
 
         self.print_to_stdout("Running container [%s]: " % name)
 
-        return self.execute_docker_command(args)
+        return self.execute_docker_command(args, True)
 
 
     def stop(self, name):
