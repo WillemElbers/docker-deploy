@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from plumbum import local, cli
+from plumbum import local, cli, FG
 from plumbum import commands
 from sys import stdout
 import os
@@ -234,9 +234,12 @@ class Container:
 
         return self.execute_docker_command(["rm", name])
 
-    def execute_docker_command(self, args):
+    def execute_docker_command(self, args, foreground=False):
         try:
-            self.docker.run(args)
+            if foreground:
+                self.docker.run[args] & FG
+            else:
+                self.docker.run(args)
             self.print_to_stdout("Success.\n")
             return True
         except commands.processes.ProcessExecutionError, e:
