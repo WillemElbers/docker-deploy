@@ -167,7 +167,7 @@ class Container:
         return self.execute_docker_command(args)
 
     def run(self, name, config, shared_vars=[]):
-        args = ["run", "--name", name, "-ti", "--rm"]
+        args = ["run", "--name", name, "-i", "--rm"]
 
         if "memory" in config:
             args.append("-m")
